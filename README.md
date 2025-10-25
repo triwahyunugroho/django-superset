@@ -63,10 +63,6 @@ Project ini memiliki 6 model database untuk anggaran pemerintah daerah:
 
 ### 1. Clone/Download Project
 
-```bash
-cd /home/kirinyakanan/Documents/projects/superset-django
-```
-
 ### 2. Generate Encryption Key
 
 Buka Python shell dan generate Fernet key:
