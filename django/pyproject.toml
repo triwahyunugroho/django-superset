@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "superset-django"
+version = "0.1.0"
+description = ""
+authors = ["tri wahyu nugroho <triwahyunugroho_19@yahoo.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+django = "^5.2.7"
+psycopg2-binary = "^2.9.11"
+djangorestframework = "^3.16.1"
+django-cors-headers = "^4.9.0"
+python-decouple = "^3.8"
+requests = "^2.32.5"
+gunicorn = "^23.0.0"
+cryptography = "^46.0.3"
+django-superset-integration = "^0.1.17"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

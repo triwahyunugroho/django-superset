@@ -1,0 +1,119 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: superset_postgres
+    environment:
+      POSTGRES_DB: superset_db
+      POSTGRES_USER: superset_user
+      POSTGRES_PASSWORD: superset_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - superset_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset_user -d superset_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: superset_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - superset_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  superset:
+    build:
+      context: ./superset
+      dockerfile: Dockerfile
+    container_name: superset_app
+    environment:
+      - SUPERSET_SECRET_KEY=your_secret_key_change_this_in_production
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_DB=superset_db
+      - DATABASE_USER=superset_user
+      - DATABASE_PASSWORD=superset_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - superset_network
+    volumes:
+      - ./superset/superset_config.py:/app/pythonpath/superset_config.py
+    command: >
+      sh -c "superset db upgrade &&
+             superset fab create-admin --username admin --firstname Admin --lastname User --email admin@superset.com --password admin &&
+             superset init &&
+             gunicorn --bind 0.0.0.0:8088 --workers 4 --timeout 120 --limit-request-line 0 --limit-request-field_size 0 'superset.app:create_app()'"
+
+  django:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+    container_name: django_app
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django_secret_key_change_this_in_production
+      - DB_NAME=superset_db
+      - DB_USER=superset_user
+      - DB_PASSWORD=superset_password
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - SUPERSET_URL=http://superset:8088
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      superset:
+        condition: service_started
+    networks:
+      - superset_network
+    volumes:
+      - ./django:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy_proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - django
+      - superset
+    networks:
+      - superset_network
+
+networks:
+  superset_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

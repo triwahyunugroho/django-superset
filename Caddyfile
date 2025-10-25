@@ -1,0 +1,24 @@
+localhost {
+    # Django app
+    handle /admin* {
+        reverse_proxy django:8000
+    }
+
+    handle /static* {
+        reverse_proxy django:8000
+    }
+
+    handle /api* {
+        reverse_proxy django:8000
+    }
+
+    # Superset app
+    handle /superset* {
+        reverse_proxy superset:8088
+    }
+
+    # Default to Django
+    handle /* {
+        reverse_proxy django:8000
+    }
+}

@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Anggaran Daerah{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        min-height: 600px;
+    }
+
+    #superset-embedded-container {
+        width: 100%;
+        height: 100vh;
+        min-height: 800px;
+        border-radius: 8px;
+        background: #f8f9fa;
+        position: relative;
+    }
+
+    #superset-embedded-container iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .loading-spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #6c757d;
+    }
+
+    .info-box {
+        padding: 20px;
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        border-radius: 4px;
+        margin: 20px 0;
+    }
+
+    .info-box h4 {
+        margin-top: 0;
+        color: #1976d2;
+    }
+
+    .info-box ol {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+
+    .info-box li {
+        margin: 5px 0;
+    }
+
+    .success-box {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+    }
+
+    .success-box h4 {
+        color: #155724;
+    }
+
+    .success-box p {
+        color: #155724;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Dashboard Visualisasi Anggaran Daerah</h2>
+    <p>Dashboard ini terintegrasi dengan Apache Superset untuk visualisasi data yang interaktif.</p>
+</div>
+
+<div class="card">
+    <div class="info-box">
+        <h4>Cara Setup Dashboard Superset</h4>
+        <p>Untuk menampilkan dashboard Superset, ikuti langkah-langkah berikut:</p>
+        <ol>
+            <li>Buka <a href="http://localhost:8088/login/" target="_blank">Superset Login</a> dan login dengan username: <code>admin</code>, password: <code>admin</code></li>
+            <li>Buka menu Django Admin di <a href="/admin/" target="_blank">/admin/</a></li>
+            <li>Buat <strong>SupersetInstance</strong> dengan:
+                <ul>
+                    <li>Name: Superset Server</li>
+                    <li>Url: http://superset:8088</li>
+                    <li>Username: superset_api (atau admin untuk testing)</li>
+                    <li>Password: (password untuk user tersebut)</li>
+                </ul>
+            </li>
+            <li>Buat dashboard di Superset dengan data dari database PostgreSQL</li>
+            <li>Catat Dashboard ID dari URL (contoh: /superset/dashboard/<strong>1</strong>/)</li>
+            <li>Buat <strong>SupersetDashboard</strong> di Django Admin dengan Dashboard ID tersebut</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card dashboard-container">
+    <h3>Embedded Dashboard - Superset (Using Embedded SDK)</h3>
+
+    <div class="info-box success-box">
+        <h4>✓ Dashboard Embedded menggunakan @superset-ui/embedded-sdk</h4>
+        <p><strong>Metode yang lebih aman dengan Guest Token Authentication</strong></p>
+        <ul style="margin: 10px 0; padding-left: 20px; color: #155724;">
+            <li>Menggunakan guest token untuk autentikasi</li>
+            <li>Tidak perlu login ke Superset</li>
+            <li>Lebih aman daripada iframe biasa</li>
+            <li>Mendukung Row-Level Security (RLS)</li>
+        </ul>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="http://{{ superset_domain }}/superset/dashboard/{{ superset_dashboard_id }}/"
+           target="_blank"
+           style="background: #667eea; color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; display: inline-block; font-size: 16px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            🚀 Open in Superset
+        </a>
+    </div>
+
+    <!-- Superset Embedded Dashboard Container -->
+    <div id="superset-embedded-container">
+        <div id="loading-message" class="loading-spinner">
+            <div style="font-size: 48px; margin-bottom: 10px;">⏳</div>
+            <p style="font-size: 16px;">Loading dashboard dengan Embedded SDK...</p>
+            <p style="font-size: 14px; margin-top: 10px;">Fetching guest token...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Load Superset Embedded SDK from CDN -->
+<script>
+// Function to fetch guest token from Django backend
+async function fetchGuestToken() {
+    try {
+        // Use direct JWT generation endpoint (works with Superset 3.0+)
+        const response = await fetch('/guest-token/{{ superset_dashboard_id }}/');
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('Failed to fetch guest token:', errorData);
+            throw new Error(`Guest token fetch failed: ${response.status}`);
+        }
+
+        const guestToken = await response.text();
+        console.log('Guest token fetched successfully');
+        return guestToken;
+    } catch (error) {
+        console.error('Error fetching guest token:', error);
+        document.getElementById('loading-message').innerHTML =
+            '<div style="font-size: 48px; margin-bottom: 10px;">⚠️</div>' +
+            '<p style="font-size: 16px; color: #dc3545;">Gagal memuat dashboard</p>' +
+            '<p style="font-size: 14px; margin-top: 10px;">Error: ' + error.message + '</p>' +
+            '<a href="http://{{ superset_domain }}/superset/dashboard/{{ superset_dashboard_id }}/" target="_blank" ' +
+            'style="display: inline-block; margin-top: 15px; background: #667eea; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">Buka di Tab Baru</a>';
+        throw error;
+    }
+}
+
+// Embed the dashboard using Superset Embedded SDK
+function embedSupersetDashboard() {
+    // Check if SDK is loaded
+    if (typeof supersetEmbeddedSdk === 'undefined') {
+        console.error('Superset Embedded SDK not loaded');
+        document.getElementById('loading-message').innerHTML =
+            '<div style="font-size: 48px; margin-bottom: 10px;">⚠️</div>' +
+            '<p style="font-size: 16px; color: #dc3545;">SDK tidak dapat dimuat</p>' +
+            '<p style="font-size: 14px; margin-top: 10px;">Superset Embedded SDK gagal di-load dari CDN</p>' +
+            '<a href="http://{{ superset_domain }}/superset/dashboard/{{ superset_dashboard_id }}/" target="_blank" ' +
+            'style="display: inline-block; margin-top: 15px; background: #667eea; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">Buka di Tab Baru</a>';
+        return;
+    }
+
+    supersetEmbeddedSdk.embedDashboard({
+        id: "{{ superset_dashboard_id }}", // Dashboard ID in Superset
+        supersetDomain: "http://{{ superset_domain }}",
+        mountPoint: document.getElementById("superset-embedded-container"),
+        fetchGuestToken: fetchGuestToken,
+        dashboardUiConfig: {
+            hideTitle: false,
+            hideTab: false,
+            hideChartControls: false,
+            filters: {
+                expanded: true,
+                visible: true
+            }
+        },
+        debug: true // Enable debug mode for development
+    })
+    .then(() => {
+        console.log('Dashboard embedded successfully!');
+        // Hide loading message after successful embed
+        const loadingEl = document.getElementById('loading-message');
+        if (loadingEl) {
+            loadingEl.style.display = 'none';
+        }
+    })
+    .catch(error => {
+        console.error('Error embedding dashboard:', error);
+        document.getElementById('loading-message').innerHTML =
+            '<div style="font-size: 48px; margin-bottom: 10px;">⚠️</div>' +
+            '<p style="font-size: 16px; color: #dc3545;">Dashboard tidak dapat dimuat</p>' +
+            '<p style="font-size: 14px; margin-top: 10px;">Error: ' + error.message + '</p>' +
+            '<a href="http://{{ superset_domain }}/superset/dashboard/{{ superset_dashboard_id }}/" target="_blank" ' +
+            'style="display: inline-block; margin-top: 15px; background: #667eea; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">Buka di Tab Baru</a>';
+    });
+}
+
+// Wait for SDK to load, then embed dashboard
+window.addEventListener('DOMContentLoaded', function() {
+    // Try to load SDK first
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@superset-ui/embedded-sdk@0.1.0-alpha.10/bundle/index.js';
+    script.onload = function() {
+        console.log('Superset Embedded SDK loaded successfully');
+        embedSupersetDashboard();
+    };
+    script.onerror = function() {
+        console.error('Failed to load Superset Embedded SDK from CDN');
+        document.getElementById('loading-message').innerHTML =
+            '<div style="font-size: 48px; margin-bottom: 10px;">⚠️</div>' +
+            '<p style="font-size: 16px; color: #dc3545;">SDK tidak dapat dimuat dari CDN</p>' +
+            '<p style="font-size: 14px; margin-top: 10px;">Gagal load @superset-ui/embedded-sdk</p>' +
+            '<a href="http://{{ superset_domain }}/superset/dashboard/{{ superset_dashboard_id }}/" target="_blank" ' +
+            'style="display: inline-block; margin-top: 15px; background: #667eea; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">Buka di Tab Baru</a>';
+    };
+    document.head.appendChild(script);
+});
+</script>
+</div>
+{% endblock %}
