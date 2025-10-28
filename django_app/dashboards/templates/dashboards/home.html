@@ -1,0 +1,80 @@
+{% extends "dashboards/base.html" %}
+
+{% block title %}Beranda - Dashboard Anggaran{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto text-center">
+            <h1 class="display-4 mb-4">Dashboard Anggaran Pemerintah Daerah</h1>
+            <p class="lead mb-5">
+                Transparansi rencana dan realisasi anggaran untuk masyarakat
+            </p>
+
+            <div class="row g-4 mb-5">
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="fs-1 text-primary mb-3">📊</div>
+                            <h5 class="card-title">Visualisasi Data</h5>
+                            <p class="card-text text-muted">
+                                Dashboard interaktif dengan berbagai visualisasi data anggaran
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="fs-1 text-success mb-3">🔓</div>
+                            <h5 class="card-title">Akses Publik</h5>
+                            <p class="card-text text-muted">
+                                Tidak perlu login untuk melihat dashboard publik
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="fs-1 text-info mb-3">📈</div>
+                            <h5 class="card-title">Real-time</h5>
+                            <p class="card-text text-muted">
+                                Data terkini rencana dan realisasi anggaran
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-block">
+                <a href="{% url 'dashboards:dashboard_list_page' %}" class="btn btn-primary btn-lg px-5">
+                    Lihat Dashboard Publik
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 pt-5">
+        <div class="col-lg-10 mx-auto">
+            <h2 class="text-center mb-4">Tentang Data</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>📝 Rencana Anggaran</h5>
+                    <p class="text-muted">
+                        Data rencana anggaran per OPD, program, dan kegiatan dengan breakdown per triwulan dan bulan.
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <h5>✅ Realisasi Anggaran</h5>
+                    <p class="text-muted">
+                        Monitoring realisasi anggaran dengan persentase capaian dan sisa anggaran per kegiatan.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

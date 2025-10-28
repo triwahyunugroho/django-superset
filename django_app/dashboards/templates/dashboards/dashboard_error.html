@@ -1,0 +1,68 @@
+{% extends "dashboards/base.html" %}
+
+{% block title %}Error - Dashboard Anggaran{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="alert alert-danger">
+                <h4 class="alert-heading">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Tidak Dapat Memuat Dashboard
+                </h4>
+                <hr>
+                <p><strong>Error:</strong> {{ error }}</p>
+
+                {% if dashboard_title %}
+                <p><strong>Dashboard:</strong> {{ dashboard_title }}</p>
+                {% endif %}
+
+                {% if dashboard_info %}
+                <hr>
+                <h5>Informasi Dashboard:</h5>
+                <ul>
+                    <li>
+                        Status:
+                        {% if dashboard_info.published %}
+                            <span class="badge bg-success">Published</span>
+                        {% else %}
+                            <span class="badge bg-warning">Draft</span>
+                        {% endif %}
+                    </li>
+                    {% if dashboard_info.roles %}
+                    <li>Roles: {{ dashboard_info.roles|join:", " }}</li>
+                    {% endif %}
+                    <li>Has Public Role: {{ dashboard_info.has_public_role|yesno:"Yes,No" }}</li>
+                </ul>
+                {% endif %}
+
+                <hr>
+                <h5>Kemungkinan Penyebab:</h5>
+                <ul>
+                    <li>Dashboard masih dalam mode Draft</li>
+                    <li>Dashboard tidak memiliki role "Public"</li>
+                    <li>Dashboard tidak tersedia untuk akses publik</li>
+                    <li>Anda tidak memiliki izin untuk mengakses dashboard ini</li>
+                </ul>
+
+                <hr>
+                <p><strong>Solusi:</strong></p>
+                <ul>
+                    <li>Hubungi administrator untuk mem-publish dashboard</li>
+                    <li>Pastikan dashboard memiliki role "Public" untuk akses tanpa login</li>
+                </ul>
+
+                <div class="mt-4">
+                    <a href="{% url 'dashboards:dashboard_list_page' %}" class="btn btn-primary">
+                        Kembali ke Daftar Dashboard
+                    </a>
+                    <a href="{% url 'dashboards:home' %}" class="btn btn-secondary">
+                        Ke Beranda
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

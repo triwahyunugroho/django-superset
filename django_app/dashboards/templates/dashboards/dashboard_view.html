@@ -1,0 +1,127 @@
+{% extends "dashboards/base.html" %}
+
+{% block title %}{{ dashboard_title }} - Dashboard Anggaran{% endblock %}
+
+{% block extra_css %}
+#superset-container {
+    width: 100%;
+    min-height: 800px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center my-3">
+                <div>
+                    <h2>{{ dashboard_title }}</h2>
+                    <p class="text-muted mb-0">Dashboard Anggaran Pemerintah Daerah</p>
+                </div>
+                <a href="{% url 'dashboards:dashboard_list_page' %}" class="btn btn-secondary">
+                    ← Kembali
+                </a>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="text-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3 text-muted">Memuat dashboard...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="alert alert-danger" style="display: none;">
+                <h5 class="alert-heading">Error</h5>
+                <p id="error-message"></p>
+            </div>
+
+            <!-- Dashboard Container -->
+            <div id="superset-container"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Superset Embedded SDK -->
+<script src="https://unpkg.com/@superset-ui/embedded-sdk@0.1.0-alpha.10/bundle/index.js"></script>
+
+<script>
+    const dashboardUuid = "{{ dashboard_uuid }}";
+    const supersetUrl = "{{ superset_url }}";
+
+    // Fetch guest token from Django backend
+    async function fetchGuestToken() {
+        try {
+            const response = await fetch('/api/guest-token/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    dashboard_uuid: dashboardUuid
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get guest token');
+            }
+
+            console.log('Guest token obtained successfully');
+            return data.guest_token;
+
+        } catch (error) {
+            console.error('Failed to fetch guest token:', error);
+            showError('Failed to load dashboard: ' + error.message);
+            throw error;
+        }
+    }
+
+    // Embed dashboard using Superset SDK
+    async function embedDashboard() {
+        try {
+            document.getElementById('loading').style.display = 'block';
+
+            await supersetEmbeddedSdk.embedDashboard({
+                id: dashboardUuid,
+                supersetDomain: supersetUrl,
+                mountPoint: document.getElementById('superset-container'),
+                fetchGuestToken: fetchGuestToken,
+                dashboardUiConfig: {
+                    hideTitle: false,
+                    hideChartControls: false,
+                    hideTab: false,
+                    filters: {
+                        expanded: true,
+                    },
+                }
+            });
+
+            document.getElementById('loading').style.display = 'none';
+            console.log('Dashboard embedded successfully');
+
+        } catch (error) {
+            document.getElementById('loading').style.display = 'none';
+            console.error('Failed to embed dashboard:', error);
+            showError('Failed to load dashboard: ' + error.message);
+        }
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error');
+        const errorMessage = document.getElementById('error-message');
+        errorMessage.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    // Embed dashboard on page load
+    embedDashboard();
+</script>
+{% endblock %}

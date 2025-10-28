@@ -1,0 +1,21 @@
+# Caddyfile - Reverse Proxy Configuration
+# Caddy automatically handles HTTPS with Let's Encrypt
+
+# Main site (Django app)
+:80 {
+    # Handle Django application
+    handle /* {
+        reverse_proxy django:8000
+    }
+
+    # Logs
+    log {
+        output stdout
+        format json
+    }
+}
+
+# Optional: If you want separate subdomain for Superset
+# superset.localhost {
+#     reverse_proxy superset:8088
+# }
