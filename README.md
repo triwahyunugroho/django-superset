@@ -5,11 +5,15 @@ Integrasi sederhana Django dengan Apache Superset untuk menampilkan dashboard an
 ## 🎯 Fitur
 
 - ✅ **Public Access**: Dashboard dapat diakses tanpa login
+- ✅ **Auto Setup**: Admin user dan service account dibuat otomatis
 - ✅ **Service Account Token**: Backend Django menggunakan service account untuk API calls
 - ✅ **Guest Token**: Frontend menggunakan guest token untuk embed dashboard
+- ✅ **Dashboard Filters**: Native filters, cross-filters, dan parameter parsing
+- ✅ **Row Level Security (RLS)**: Filter data per-user menggunakan guest token
 - ✅ **Dashboard Management**: Pembuat dashboard dapat menentukan visibility (public/private)
 - ✅ **Docker Compose**: Setup lengkap dengan satu command
 - ✅ **PostgreSQL**: Database untuk Django dan Superset
+- ✅ **Redis**: Caching untuk performa optimal
 - ✅ **Caddy**: Web server modern dengan auto-HTTPS
 - ✅ **Dummy Data**: Data anggaran pemerintah daerah siap pakai
 
@@ -22,7 +26,7 @@ Integrasi sederhana Django dengan Apache Superset untuk menampilkan dashboard an
 
 ## 🚀 Quick Start
 
-> **⚡ Super Quick Start**: Lihat [QUICKSTART.md](QUICKSTART.md) untuk panduan 5 menit!
+> **⚡ Fastest Way**: Gunakan `bash start.sh` untuk automatic setup!
 >
 > **📚 Complete Guide**: Lihat [docs/06-implementation-complete.md](docs/06-implementation-complete.md) untuk dokumentasi lengkap!
 
@@ -33,13 +37,13 @@ git clone <repository-url>
 cd superset-django-2
 ```
 
-### 2. Copy Environment Variables
+### 2. Copy Environment Variables (Optional)
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` file dan ubah password/secret keys sesuai kebutuhan:
+Edit `.env` file untuk mengubah password/secret keys (opsional untuk development):
 
 ```bash
 # .env
@@ -48,49 +52,50 @@ SUPERSET_SECRET_KEY=your_superset_secret
 DJANGO_SECRET_KEY=your_django_secret
 SUPERSET_SERVICE_PASSWORD=your_service_password
 GUEST_TOKEN_JWT_SECRET=your_guest_token_secret
+
+# Admin user credentials (auto-created on startup)
+SUPERSET_ADMIN_USER=admin
+SUPERSET_ADMIN_PASSWORD=admin
 ```
 
-### 3. Start Services
+### 3. Start All Services (Automatic Setup)
+
+```bash
+bash start.sh
+```
+
+Script ini akan:
+- ✅ Membuat .env file dari .env.example (jika belum ada)
+- ✅ Start semua Docker containers
+- ✅ Menunggu semua services ready
+- ✅ **Auto-create admin user** di Superset
+- ✅ **Auto-create service account** untuk Django
+- ✅ Menampilkan access points dan credentials
+
+**Atau manual:**
 
 ```bash
 docker compose up -d
 ```
 
-Tunggu beberapa menit untuk initial setup. Monitor logs:
+Monitor progress:
 
 ```bash
-docker compose logs -f
+docker compose logs -f superset
 ```
 
-### 4. Create Service Account in Superset
-
-Setelah Superset ready, buat service account untuk Django:
-
-```bash
-# Exec into Superset container
-docker exec -it superset bash
-
-# Create service account
-superset fab create-user \
-  --username django_service \
-  --firstname Django \
-  --lastname Service \
-  --email service@example.com \
-  --password django_service_password_change_this \
-  --role Admin
-
-# Exit container
-exit
-```
-
-**Penting**: Password harus sama dengan `SUPERSET_SERVICE_PASSWORD` di `.env` file.
-
-### 5. Access Applications
+### 4. Access Applications
 
 - **Django (Public)**: http://localhost
 - **Superset (Admin)**: http://localhost:8088
   - Username: `admin`
   - Password: `admin` (atau sesuai `SUPERSET_ADMIN_PASSWORD`)
+
+**Service Account** (untuk Django backend):
+- Username: `django_service`
+- Password: sesuai `SUPERSET_SERVICE_PASSWORD` di `.env`
+- Role: Admin
+- **Otomatis dibuat saat startup!**
 
 ## 📊 Setup Dashboard Superset
 
@@ -295,15 +300,58 @@ superset-django-2/
 
 ## 🔍 Troubleshooting
 
-### Service Account Login Failed
+> **📖 Full Guide**: Lihat [docs/08-troubleshooting-guide.md](docs/08-troubleshooting-guide.md) untuk panduan lengkap!
 
-**Error**: `Failed to authenticate with Superset`
+### Charts Stuck at "Waiting on PostgreSQL" When Saving
+
+**Symptoms**: Chart preview works but save operation hangs indefinitely
+
+**Root Causes**:
+1. Redis connection issues (localhost vs container name)
+2. GLOBAL_ASYNC_QUERIES enabled without Celery workers
+3. Missing CSRF configuration
 
 **Solution**:
-1. Check service account exists in Superset
+Pastikan konfigurasi ini di `superset_config/superset_config.py`:
+
+```python
+# Disable CSRF for API (protected by JWT authentication)
+WTF_CSRF_ENABLED = False
+
+# Disable async queries if Celery workers not set up
+FEATURE_FLAGS = {
+    'GLOBAL_ASYNC_QUERIES': False,  # IMPORTANT!
+    # ... other flags
+}
+
+# All cache configs must use container hostname 'redis'
+CACHE_CONFIG = {
+    'CACHE_REDIS_HOST': 'redis',  # NOT 'localhost'
+    'CACHE_REDIS_URL': f'redis://redis:6379/1',
+}
+```
+
+Restart Superset:
+```bash
+docker compose restart superset
+```
+
+### Service Account Login Failed
+
+**Error**: `Failed to authenticate with Superset: 401 UNAUTHORIZED`
+
+**Solution**:
+1. Reset service account password:
+   ```bash
+   docker exec superset superset fab reset-password \
+     --username django_service \
+     --password your_password_from_env
+   ```
 2. Verify password matches `.env` file
-3. Check Superset is running: `docker compose ps`
-4. Check logs: `docker compose logs superset`
+3. Clear Django cache:
+   ```bash
+   docker compose restart django
+   ```
 
 ### Dashboard Not Accessible via Guest Token
 
@@ -311,28 +359,48 @@ superset-django-2/
 
 **Solution**:
 1. Ensure dashboard is **Published** (not Draft)
+   - Klik badge "DRAFT" untuk publish
 2. Ensure dashboard has **Public** role assigned
-3. Enable feature flags in `superset_config.py`:
-   ```python
-   FEATURE_FLAGS = {
-       'DASHBOARD_RBAC': True,
-       'EMBEDDED_SUPERSET': True,
-   }
+   - Settings > Access > Roles > Centang "Public"
+3. Verify in Django:
+   ```bash
+   docker exec django-app python manage.py shell -c "
+   from services.superset_service import SupersetService
+   s = SupersetService()
+   info = s.get_dashboard_visibility_info('your-dashboard-uuid')
+   print(info)
+   "
    ```
-4. Restart Superset: `docker compose restart superset`
 
-### CORS Error in Browser Console
+### CSRF Token Errors
 
-**Error**: `Access-Control-Allow-Origin`
+**Error**: `The CSRF token is missing` atau `The CSRF session token is missing`
 
 **Solution**:
-Check `superset_config.py`:
+Disable CSRF di `superset_config.py` (API sudah dilindungi JWT):
 ```python
-ENABLE_CORS = True
-CORS_OPTIONS = {
-    'supports_credentials': True,
-    'origins': ['*'],  # Or specific domain
-}
+WTF_CSRF_ENABLED = False
+```
+
+Restart Superset:
+```bash
+docker compose restart superset
+```
+
+### Redis Connection Refused (localhost:6379)
+
+**Error**: `Error 111 connecting to localhost:6379`
+
+**Solution**:
+Superset mencoba connect ke localhost instead of container. Update `superset_config.py`:
+
+```python
+REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')  # NOT 'localhost'
+
+# All cache configs:
+CACHE_REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/1'
+DATA_CACHE_CONFIG = {..., 'CACHE_REDIS_URL': f'redis://{REDIS_HOST}:{REDIS_PORT}/2'}
+# ... etc for all cache configs
 ```
 
 ### Database Connection Failed
@@ -342,7 +410,11 @@ CORS_OPTIONS = {
 **Solution**:
 1. Wait for PostgreSQL to be ready: `docker compose logs postgres`
 2. Check credentials in `.env`
-3. Recreate containers: `docker compose down && docker compose up -d`
+3. Test connection:
+   ```bash
+   docker exec superset-postgres pg_isready -U superset
+   ```
+4. Recreate containers: `docker compose down && docker compose up -d`
 
 ### Port Already in Use
 
@@ -352,6 +424,22 @@ CORS_OPTIONS = {
 1. Check which process uses the port: `lsof -i :80`
 2. Stop the process or change port in `docker-compose.yml`
 3. For port 80, you might need sudo
+
+### Superset Container Exits Immediately
+
+**Error**: Container exits with code 1
+
+**Solution**:
+1. Check logs: `docker compose logs superset`
+2. Common causes:
+   - Missing Python dependencies (psycopg2-binary, redis, flask-cors)
+   - Configuration errors in superset_config.py
+   - Database connection issues
+3. Rebuild Superset image:
+   ```bash
+   docker compose build superset --no-cache
+   docker compose up -d superset
+   ```
 
 ## 🧪 Testing
 
@@ -503,6 +591,72 @@ superset.yourdomain.com {
 }
 ```
 
+## 🎛️ Parameters & Filtering
+
+> **📖 Full Guide**: Lihat [docs/07-parameters-and-filtering.md](docs/07-parameters-and-filtering.md) untuk dokumentasi lengkap!
+
+Project ini sudah support multiple filtering methods:
+
+### 1. Dashboard Native Filters (UI-based)
+
+User bisa filter dashboard langsung dari UI tanpa modifikasi code.
+
+**Cara setup**:
+1. Edit dashboard > "⚙️" > "Add/Edit filters"
+2. Tambahkan filter (contoh: dropdown OPD, slider tahun)
+3. Filter otomatis apply ke semua charts
+
+### 2. Jinja Templates dalam SQL Query
+
+Query SQL dinamis menggunakan Jinja2 syntax:
+
+```sql
+SELECT opd_nama, SUM(nilai_rencana) as total
+FROM v_summary_anggaran
+WHERE 1=1
+{% if filter_values('opd_filter') %}
+    AND opd_nama IN {{ filter_values('opd_filter')|where_in }}
+{% endif %}
+{% if filter_values('tahun_filter') %}
+    AND tahun = {{ filter_values('tahun_filter')[0] }}
+{% endif %}
+GROUP BY opd_nama
+```
+
+### 3. Row Level Security (RLS) via Guest Token
+
+Filter data per-user dari Django backend:
+
+```python
+# Contoh: User hanya bisa lihat data dinas mereka
+rls_rules = [{
+    "clause": "opd_nama = 'Dinas Pendidikan'"
+}]
+
+guest_token = superset.create_guest_token(
+    dashboard_uuid=dashboard_uuid,
+    user_info={"username": "kepala_diknas", ...},
+    rls_rules=rls_rules
+)
+```
+
+**Use cases**:
+- Kepala Dinas: hanya lihat data dinasnya
+- DPRD: lihat semua tapi filter by tahun
+- Public: tanpa RLS, user pilih sendiri via filters
+
+### 4. URL Parameters
+
+Pass parameters via URL query string:
+
+```python
+# URL: /dashboards/xxx/?opd=Dinas+Pendidikan&tahun=2024
+opd = request.GET.get('opd')
+tahun = request.GET.get('tahun')
+
+rls_rules = [{"clause": f"opd_nama = '{opd}' AND tahun = {tahun}"}]
+```
+
 ## 📚 Documentation
 
 See `docs/` directory for detailed documentation:
@@ -512,6 +666,9 @@ See `docs/` directory for detailed documentation:
 - [Authentication & Tokens](docs/03-authentication-tokens.md)
 - [Dashboard Permissions](docs/04-dashboard-permissions.md)
 - [Django Integration](docs/05-django-integration.md)
+- [Implementation Complete](docs/06-implementation-complete.md)
+- [Parameters & Filtering](docs/07-parameters-and-filtering.md) 🆕
+- [Troubleshooting Guide](docs/08-troubleshooting-guide.md) 🆕
 
 ## 🤝 Contributing
 

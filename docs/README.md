@@ -42,7 +42,21 @@ Dokumentasi lengkap hasil riset dan implementasi integrasi Django dengan Apache 
    - Public access tanpa login
    - Dashboard visibility control
    - Production deployment guide
-   - Troubleshooting lengkap
+
+7. [**Parameters & Filtering Guide**](./07-parameters-and-filtering.md) 🆕
+   - Dashboard Native Filters (UI-based)
+   - Jinja Templates in SQL Queries
+   - Row Level Security (RLS) via Guest Token
+   - URL Parameters untuk deep linking
+   - Best practices dan contoh implementasi
+
+8. [**Troubleshooting Guide**](./08-troubleshooting-guide.md) 🆕
+   - Setup issues (dependencies, containers, admin user)
+   - Superset issues (chart stuck, CSRF, Redis connection)
+   - Django integration issues (guest token, authentication)
+   - Database, network, performance issues
+   - Security best practices
+   - Diagnostic commands
 
 ## Quick Start
 
@@ -194,18 +208,30 @@ Admin bisa manage dashboard visibility (public/private) melalui Django admin int
 
 ## Troubleshooting
 
-### Guest Token Error 403
-- Pastikan dashboard status = Published
-- Pastikan Public role punya akses ke dashboard atau datasets
-- Check FEATURE_FLAGS: EMBEDDED_SUPERSET = True
+> **📖 Complete Guide**: Lihat [Troubleshooting Guide](./08-troubleshooting-guide.md) untuk panduan lengkap!
 
-### CORS Error
-- Enable CORS di superset_config.py
-- Tambahkan Django domain ke CORS_OPTIONS
+### Quick Fixes
 
-### Token Expired
-- Guest token expire otomatis setiap 5 menit
-- SDK otomatis refresh, pastikan fetchGuestToken function bekerja
+**Charts Stuck at "Waiting on PostgreSQL"**
+- Disable CSRF: `WTF_CSRF_ENABLED = False`
+- Disable async: `GLOBAL_ASYNC_QUERIES = False`
+- Fix Redis: Use hostname `redis` not `localhost`
+- Add `CACHE_REDIS_URL` to all cache configs
+
+**Guest Token Error 403**
+- Dashboard must be **Published** (not Draft)
+- Dashboard must have **Public** role
+- Check: `EMBEDDED_SUPERSET = True` in FEATURE_FLAGS
+
+**Service Account 401 Error**
+- Reset password to match `.env` file
+- Verify service account exists with Admin role
+
+**CORS Error**
+- Enable CORS in superset_config.py
+- Add Django domain to CORS_OPTIONS origins
+
+For comprehensive troubleshooting, see [Troubleshooting Guide](./08-troubleshooting-guide.md).
 
 ## Resources
 
