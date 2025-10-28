@@ -36,13 +36,21 @@ services:
 
   # Apache Superset
   superset:
-    image: apache/superset:latest
+    build:
+      context: ./superset_dockerfile
+      dockerfile: Dockerfile
     container_name: superset
     environment:
       - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY:-your_secret_key_here}
       - SUPERSET_DATABASE_URI=postgresql+psycopg2://${POSTGRES_USER:-superset}:${POSTGRES_PASSWORD:-superset}@postgres:5432/${POSTGRES_DB:-superset}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Admin user configuration
+      - SUPERSET_ADMIN_USER=${SUPERSET_ADMIN_USER:-admin}
+      - SUPERSET_ADMIN_FIRSTNAME=${SUPERSET_ADMIN_FIRSTNAME:-Admin}
+      - SUPERSET_ADMIN_LASTNAME=${SUPERSET_ADMIN_LASTNAME:-User}
+      - SUPERSET_ADMIN_EMAIL=${SUPERSET_ADMIN_EMAIL:-admin@example.com}
+      - SUPERSET_ADMIN_PASSWORD=${SUPERSET_ADMIN_PASSWORD:-admin}
     ports:
       - "8088:8088"
     depends_on:
@@ -55,18 +63,6 @@ services:
       - superset_home:/app/superset_home
     networks:
       - superset-network
-    command: >
-      sh -c "
-      superset db upgrade &&
-      superset fab create-admin \
-        --username ${SUPERSET_ADMIN_USER:-admin} \
-        --firstname Admin \
-        --lastname User \
-        --email ${SUPERSET_ADMIN_EMAIL:-admin@example.com} \
-        --password ${SUPERSET_ADMIN_PASSWORD:-admin} || true &&
-      superset init &&
-      superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
-      "
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
       interval: 30s

@@ -25,6 +25,7 @@ CACHE_CONFIG = {
     'CACHE_REDIS_HOST': REDIS_HOST,
     'CACHE_REDIS_PORT': REDIS_PORT,
     'CACHE_REDIS_DB': 1,
+    'CACHE_REDIS_URL': f'redis://{REDIS_HOST}:{REDIS_PORT}/1',
 }
 
 # Data cache configuration
@@ -35,6 +36,7 @@ DATA_CACHE_CONFIG = {
     'CACHE_REDIS_HOST': REDIS_HOST,
     'CACHE_REDIS_PORT': REDIS_PORT,
     'CACHE_REDIS_DB': 2,
+    'CACHE_REDIS_URL': f'redis://{REDIS_HOST}:{REDIS_PORT}/2',
 }
 
 # Celery configuration for async queries
@@ -57,8 +59,9 @@ FEATURE_FLAGS = {
     # Enable native dashboard filters
     'DASHBOARD_NATIVE_FILTERS': True,
 
-    # Enable async queries
-    'GLOBAL_ASYNC_QUERIES': True,
+    # Disable async queries for now (requires Celery workers)
+    # Enable this after setting up Celery workers in docker-compose
+    'GLOBAL_ASYNC_QUERIES': False,
 
     # Enable template processing
     'ENABLE_TEMPLATE_PROCESSING': True,
@@ -73,10 +76,24 @@ FEATURE_FLAGS = {
 GUEST_ROLE_NAME = "Public"
 GUEST_TOKEN_JWT_SECRET = os.environ.get(
     'GUEST_TOKEN_JWT_SECRET',
-    'change-this-guest-token-secret-key'
+    'change-this-guest-token-secret-key-at-least-32-bytes-long'
 )
 GUEST_TOKEN_JWT_ALGO = "HS256"
 GUEST_TOKEN_JWT_EXP_SECONDS = 300  # 5 minutes
+
+# Async queries JWT secret (only needed when GLOBAL_ASYNC_QUERIES is enabled)
+# Uncomment this if you enable GLOBAL_ASYNC_QUERIES and setup Celery workers
+# GLOBAL_ASYNC_QUERIES_JWT_SECRET = os.environ.get(
+#     'GLOBAL_ASYNC_QUERIES_JWT_SECRET',
+#     'change-this-async-queries-jwt-secret-at-least-32-bytes-long!'
+# )
+
+# Async query Redis configuration (even when disabled, needs proper config to avoid localhost connection)
+GLOBAL_ASYNC_QUERIES_REDIS_CONFIG = {
+    'port': REDIS_PORT,
+    'host': REDIS_HOST,
+    'db': 0,
+}
 
 # CORS configuration to allow embedding
 ENABLE_CORS = True
@@ -104,8 +121,7 @@ PUBLIC_ROLE_LIKE = None
 
 # Security configuration
 TALISMAN_ENABLED = False  # Disable in development
-WTF_CSRF_ENABLED = True
-WTF_CSRF_EXEMPT_LIST = ['superset.views.core.log']
+WTF_CSRF_ENABLED = False  # Disable CSRF for API calls (protected by JWT authentication)
 
 # Session configuration
 PERMANENT_SESSION_LIFETIME = 3600  # 1 hour
@@ -159,6 +175,7 @@ RESULTS_BACKEND = {
     'CACHE_REDIS_HOST': REDIS_HOST,
     'CACHE_REDIS_PORT': REDIS_PORT,
     'CACHE_REDIS_DB': 3,
+    'CACHE_REDIS_URL': f'redis://{REDIS_HOST}:{REDIS_PORT}/3',
 }
 
 # Thumbnail cache configuration
@@ -167,4 +184,23 @@ THUMBNAIL_CACHE_CONFIG = {
     'CACHE_REDIS_HOST': REDIS_HOST,
     'CACHE_REDIS_PORT': REDIS_PORT,
     'CACHE_REDIS_DB': 4,
+    'CACHE_REDIS_URL': f'redis://{REDIS_HOST}:{REDIS_PORT}/4',
+}
+
+# Filter state cache configuration
+FILTER_STATE_CACHE_CONFIG = {
+    'CACHE_TYPE': 'RedisCache',
+    'CACHE_REDIS_HOST': REDIS_HOST,
+    'CACHE_REDIS_PORT': REDIS_PORT,
+    'CACHE_REDIS_DB': 5,
+    'CACHE_REDIS_URL': f'redis://{REDIS_HOST}:{REDIS_PORT}/5',
+}
+
+# Explore form data cache configuration
+EXPLORE_FORM_DATA_CACHE_CONFIG = {
+    'CACHE_TYPE': 'RedisCache',
+    'CACHE_REDIS_HOST': REDIS_HOST,
+    'CACHE_REDIS_PORT': REDIS_PORT,
+    'CACHE_REDIS_DB': 6,
+    'CACHE_REDIS_URL': f'redis://{REDIS_HOST}:{REDIS_PORT}/6',
 }

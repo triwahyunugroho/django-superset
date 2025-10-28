@@ -20,6 +20,7 @@ class SupersetService:
         self.service_username = settings.SUPERSET_CONFIG['service_account_username']
         self.service_password = settings.SUPERSET_CONFIG['service_account_password']
         self._token_cache_key = 'superset_service_token'
+        self._csrf_cache_key = 'superset_csrf_token'
 
     # =====================================
     # Authentication
@@ -72,20 +73,66 @@ class SupersetService:
         cache.delete(self._token_cache_key)
         logger.info("Service token cache invalidated")
 
-    def _get_headers(self) -> Dict[str, str]:
-        """Get authorization headers with service token"""
+    def get_csrf_token(self) -> str:
+        """
+        Get CSRF token (cached)
+        Required for POST/PUT/DELETE requests
+        """
+        # Check cache first
+        csrf = cache.get(self._csrf_cache_key)
+        if csrf:
+            logger.debug("Using cached CSRF token")
+            return csrf
+
+        # Fetch new CSRF token
+        logger.info("Fetching new CSRF token")
+        url = f"{self.base_url}/api/v1/security/csrf_token/"
         token = self.get_service_token()
-        return {
+        headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
 
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            csrf = data.get('result')
+
+            # Cache for 50 minutes
+            cache.set(self._csrf_cache_key, csrf, timeout=3000)
+
+            return csrf
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get CSRF token: {e}")
+            raise Exception(f"Failed to get CSRF token: {e}")
+
+    def _get_headers(self, include_csrf: bool = False) -> Dict[str, str]:
+        """Get authorization headers with service token"""
+        token = self.get_service_token()
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        if include_csrf:
+            csrf = self.get_csrf_token()
+            headers["X-CSRFToken"] = csrf
+            headers["Referer"] = self.base_url
+
+        return headers
+
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """
         Make API request with automatic token refresh on 401
+        Automatically includes CSRF token for POST/PUT/PATCH/DELETE
         """
         url = f"{self.base_url}{endpoint}"
-        headers = self._get_headers()
+
+        # Include CSRF for mutating requests
+        needs_csrf = method.upper() in ['POST', 'PUT', 'PATCH', 'DELETE']
+        headers = self._get_headers(include_csrf=needs_csrf)
 
         try:
             response = requests.request(
@@ -96,7 +143,7 @@ class SupersetService:
             if response.status_code == 401:
                 logger.warning("Got 401, refreshing token...")
                 self.invalidate_token()
-                headers = self._get_headers()
+                headers = self._get_headers(include_csrf=needs_csrf)
                 response = requests.request(
                     method, url, headers=headers, timeout=30, **kwargs
                 )
@@ -204,7 +251,7 @@ class SupersetService:
             'has_public_role': has_public_role,
             'guest_token_accessible': guest_token_accessible,
             'reason': reason,
-            'owners': [o['username'] for o in dashboard.get('owners', [])],
+            'owners': [o.get('username', 'unknown') for o in dashboard.get('owners', [])],
             'thumbnail_url': dashboard.get('thumbnail_url'),
             'url': dashboard.get('url')
         }
