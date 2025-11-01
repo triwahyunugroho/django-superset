@@ -82,7 +82,7 @@ services:
       - SUPERSET_URL=http://superset:8088
       - SUPERSET_SERVICE_USER=${SUPERSET_SERVICE_USER:-django_service}
       - SUPERSET_SERVICE_PASSWORD=${SUPERSET_SERVICE_PASSWORD:-django_service_password}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:localhost,127.0.0.1,django,caddy}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,django,caddy}
     ports:
       - "8000:8000"
     depends_on:
