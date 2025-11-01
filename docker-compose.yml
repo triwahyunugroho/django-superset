@@ -79,7 +79,7 @@ services:
       - DEBUG=${DEBUG:-True}
       - SECRET_KEY=${DJANGO_SECRET_KEY:-django-secret-key-change-this}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-superset}:${POSTGRES_PASSWORD:-superset}@postgres:5432/django_db
-      - SUPERSET_URL=http://superset:8088
+      - SUPERSET_URL=${SUPERSET_URL:-http://localhost:8088}
       - SUPERSET_SERVICE_USER=${SUPERSET_SERVICE_USER:-django_service}
       - SUPERSET_SERVICE_PASSWORD=${SUPERSET_SERVICE_PASSWORD:-django_service_password}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,django,caddy}
